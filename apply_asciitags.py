@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+import os
 # Final pass: ASCII-fold any remaining non-ASCII tags (smart quotes/accents -> plain).
 import sys, unicodedata
 APPLY = "--apply" in sys.argv
-LIB = "/Users/andrei/Library/Mobile Documents/com~apple~CloudDocs/Calibre/fanfiction"
+LIB = os.path.expanduser(os.environ.get("CALIBRE_LIBRARY", ""))
+if not LIB:
+    raise SystemExit("Set CALIBRE_LIBRARY to your Calibre library folder (the one containing metadata.db).")
 from calibre.library import db as DB
 lib = DB(LIB).new_api
 def fold(s):

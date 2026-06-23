@@ -1,7 +1,11 @@
 import sys, sqlite3
 APPLY = "--apply" in sys.argv
-LIB = "/Users/andrei/Library/Mobile Documents/com~apple~CloudDocs/Calibre/fanfiction"
-BK = "/tmp/ff_metadata_more_20260621_0251.db"   # pre-fandom-consolidation backup (has Xianxia fandoms)
+LIB = os.path.expanduser(os.environ.get("CALIBRE_LIBRARY", ""))
+if not LIB:
+    raise SystemExit("Set CALIBRE_LIBRARY to your Calibre library folder (the one containing metadata.db).")
+BK = os.path.expanduser(os.environ.get("CALIBRE_BACKUP_DB", ""))
+if not BK:
+    raise SystemExit("Set CALIBRE_BACKUP_DB to the pre-cleanup metadata.db backup path.")   # pre-fandom-consolidation backup (has Xianxia fandoms)
 TERMS = ("xianxia", "cultivation", "wuxia")
 # read backup: which cultivation-fandoms each book had
 cb = sqlite3.connect("file:%s?mode=ro" % BK, uri=True)

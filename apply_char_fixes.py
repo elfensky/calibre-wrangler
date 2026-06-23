@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import os
 # Targeted character merges (user corrections). Run: calibre-debug -e apply_char_fixes.py
 from calibre.library import db as DB
-LIB = "/Users/andrei/Library/Mobile Documents/com~apple~CloudDocs/Calibre/fanfiction"
+LIB = os.path.expanduser(os.environ.get("CALIBRE_LIBRARY", ""))
+if not LIB:
+    raise SystemExit("Set CALIBRE_LIBRARY to your Calibre library folder (the one containing metadata.db).")
 lib = DB(LIB).new_api
 merges = {
     "Andromeda Black Tonks": "Andromeda Tonks",

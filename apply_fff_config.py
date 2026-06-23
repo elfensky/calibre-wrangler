@@ -1,6 +1,8 @@
 import sys, copy
 APPLY = "--apply" in sys.argv
-LIB = "/Users/andrei/Library/Mobile Documents/com~apple~CloudDocs/Calibre/fanfiction"
+LIB = os.path.expanduser(os.environ.get("CALIBRE_LIBRARY", ""))
+if not LIB:
+    raise SystemExit("Set CALIBRE_LIBRARY to your Calibre library folder (the one containing metadata.db).")
 from calibre.library import db as DB
 api = DB(LIB).new_api
 KEY = 'namespaced:FanFicFarePlugin:settings'

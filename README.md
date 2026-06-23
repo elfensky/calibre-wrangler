@@ -21,8 +21,10 @@ re-running if the library drifts (e.g. after a bulk FanFicFare metadata re-fetch
 4. **Appliers run through the bundled calibre-debug:**
    `/Applications/calibre.app/Contents/MacOS/calibre-debug -e <script>.py -- --apply`
 5. **Generators/dry-run are plain Python** (read-only SQLite): `python3 <script>.py` — safe anytime.
-6. `OUT` auto-resolves to **this folder** (scripts read/write the CSV maps here). `LIB` is the
-   absolute library path, hardcoded in each script — edit it if the library ever moves.
+6. **Set `CALIBRE_LIBRARY`** to your library folder (the one containing `metadata.db`) — every
+   script reads it from the environment and exits with a clear message if unset:
+   `export CALIBRE_LIBRARY="$HOME/Calibre/fanfiction"`. `OUT` auto-resolves to this folder (where the
+   CSV maps live). (`recover_xianxia.py` additionally needs `CALIBRE_BACKUP_DB` = a pre-cleanup db backup.)
 
 ## Safety model
 Every applier computes the full new state in memory, asserts **no book loses its last fandom or
@@ -70,13 +72,13 @@ Final/canonical maps: `tags_map`, `genres_map`, `fandoms_map`, `characters_map`,
 
 ## Typical full run (from scratch)
 ```bash
-CD="…/Calibre/@cleanup"; LIB="…/Calibre/fanfiction"; DBG=/Applications/calibre.app/Contents/MacOS/calibre-debug
+CD="…/Calibre/@cleanup"; export CALIBRE_LIBRARY="…/Calibre/fanfiction"; DBG=/Applications/calibre.app/Contents/MacOS/calibre-debug
 # 1. generate + review maps (Calibre may be open)
 python3 "$CD/generate_maps.py"; python3 "$CD/generate_followups.py"
 python3 "$CD/dryrun.py"                       # preview impact
 #    …edit decision columns in the CSVs as desired…
 # 2. QUIT CALIBRE, then for EACH applier: dry first, back up, apply
-cp "$LIB/metadata.db" "/tmp/ff_$(date +%s).db"
+cp "$CALIBRE_LIBRARY/metadata.db" "/tmp/ff_$(date +%s).db"
 "$DBG" -e "$CD/apply.py"                       # pre-apply (no write)
 "$DBG" -e "$CD/apply.py" -- --apply           # write
 # …repeat for apply_relationships, apply_tropes, apply_more, apply_asciitags, apply_other…
@@ -104,6 +106,7 @@ get raw genres, and the **built-in `tags` column is never protected** — update
 
 To re-clean, run (Calibre closed, dry first):
 ```
+export CALIBRE_LIBRARY="…/Calibre/fanfiction"
 calibre-debug -e apply_recents.py            # then -- --apply
 calibre-debug -e apply_asciitags.py -- --apply
 ```
