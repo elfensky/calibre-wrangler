@@ -57,6 +57,22 @@ fandom-stuffed series field. Fix:
 `apply_fff_config.py` does both, plus the protection below. After that, real series fills in going
 forward and fandoms come from `category`.
 
+**Why fandom-as-series is especially bad:** Calibre's **Series** is a *numbered* field — every book
+gets a `series_index` (`A Fandom Name [1]`, `[2]`, …). So fandom-as-series doesn't just duplicate the
+fandom, it invents a bogus **ordered hierarchy**: dozens of unrelated stories become "book 1, book 2…
+of Harry Potter," a sequence that reflects nothing real. Clearing it (see `apply_other.py`) and
+mapping `#fandoms ← category` removes the fake ordering; real series (where the index is meaningful,
+e.g. a genuine 3-part AO3 series) then populate correctly.
+
+### Franchise unification (fandom granularity)
+Related works in one universe (e.g. `Fate/stay night`, `Fate/Zero`, `Fate/Grand Order`) are distinct
+titles but one fandom. The bundled `defaults/fandoms.csv` unifies the obvious franchises to a single
+canonical — **the Fate/Nasuverse works all map to `Fate`** (AO3's formal umbrella is
+`Fate - All Media Types`; plain `Fate` is cleaner for a personal library). This is a granularity
+*preference*: if you'd rather keep `Fate/Zero` separate from `Fate/stay night`, remove those rows
+from your `overrides/fandoms.csv` (or leave them unmapped). Curated unifications live in
+`build_defaults.py`'s `CURATED_FAN`.
+
 ### Protecting your cleanup from re-pollution
 FFF's **`custom_cols_newonly`** (`{column: bool}`) controls overwrite-on-update: when `true`, FFF
 only writes that column **if it's empty**, so a metadata refresh won't clobber your normalized

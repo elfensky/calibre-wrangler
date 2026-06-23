@@ -48,6 +48,14 @@ n_chars = write_csv("characters.csv", ["variant", "canonical", "fandom"], chars)
 raw = {}
 for r in rows("fandoms_consolidate_map.csv"):
     if r.get("action") in ("merge", "to_real") and r.get("target"): raw[r["fandom"]] = r["target"]
+# curated franchise unifications — generic knowledge a single library's maps don't fully capture.
+# The Fate/Nasuverse works share one universe; unify to "Fate" (overrides any mined Fate mapping).
+CURATED_FAN = {"Fate/stay night": "Fate", "Fate/Zero": "Fate", "Fate/Grand Order": "Fate",
+    "Fate/Apocrypha": "Fate", "Fate/Series": "Fate", "Fate/Extra": "Fate", "Fate/strange Fake": "Fate",
+    "Fate/kaleid liner Prisma Illya": "Fate", "Fate/Grand Carnival": "Fate", "TYPE-MOON": "Fate",
+    "Fate Series": "Fate", "Fate/Series (Type Moon)": "Fate", "Nasuverse": "Fate"}
+raw.update(CURATED_FAN)
+raw.pop("Fate", None)                  # "Fate" is the canonical sink, never an alias
 def resolve_fan(a):
     seen = [a]; cur = a
     while raw.get(cur) and raw[cur] not in seen:

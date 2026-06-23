@@ -90,8 +90,9 @@ def trope_route(canon, route, beh):
     return route
 
 # ---------------- the transform (per book) ----------------
-def transform(d, m, beh, cols):
-    """d: dict col_key -> list[str] for configured columns. Returns (newd, lost_fandom, lost_char)."""
+def transform(d, m, beh, cols, known_chars=frozenset()):
+    """d: dict col_key -> list[str] for configured columns. Returns (newd, lost_fandom, lost_char).
+    known_chars: normalized set of character names in the library (to rescue chars misfiled in #genres)."""
     F = set(d.get("fandoms", [])); C = set(d.get("characters", [])); G0 = list(d.get("genres", []))
     R = set(d.get("relationships", [])); T = list(d.get("tags", [])); st = d.get("status", [])
     had_F, had_C = bool(F), bool(C)
@@ -114,6 +115,7 @@ def transform(d, m, beh, cols):
             if na in m["gallow"] or any(na.startswith(x + " ") for x in m["gallow"] if len(x) >= 4):
                 nG.add(a)                                       # allowlisted genre or a subtype of one (AU - Canon Divergence)
             elif na in m["fanvals"]: nF.add(a)                  # misfiled fandom
+            elif na in known_chars: nC.add(a)                   # misfiled character (e.g. Akeno Himejima in #genres)
             else: extra_tags.add(a)                             # freeform -> tag
     # tags: junk drop / trope route / surface-fold / ascii / redundancy-strip
     nT = set(extra_tags)
@@ -174,10 +176,11 @@ def audit(cfg, m):
     nb = c.execute("SELECT count(*) FROM books").fetchone()[0]
     before = {k: set() for k in cols}; after = {k: set() for k in cols}
     lostF = lostC = 0; allb = set(perbook) | {r[0] for r in c.execute("SELECT id FROM books")}
+    known_chars = {norm(v) for bb in perbook for v in perbook[bb].get("characters", [])}
     for b in allb:
         d = {k: perbook[b].get(k, []) for k in cols}
         for k in cols: before[k].update(d.get(k, []))
-        nd, lf, lc = transform(d, m, beh, cols); lostF += lf; lostC += lc
+        nd, lf, lc = transform(d, m, beh, cols, known_chars); lostF += lf; lostC += lc
         for k in cols:
             if k in nd: after[k].update(nd[k])
     print("=" * 60); print("calibre-wrangler AUDIT (read-only, no changes)"); print("=" * 60)
@@ -203,8 +206,10 @@ def audit(cfg, m):
         def _kept(v):
             na = norm(m["gcanon"].get(v, v))
             return na in m["gallow"] or any(na.startswith(x + " ") for x in m["gallow"] if len(x) >= 4)
-        gmv = [v for v in sorted(before["genres"]) if v not in m["gsplit"] and not _kept(v) and norm(v) not in m["fanvals"]]
+        gch = [v for v in sorted(before["genres"]) if v not in m["gsplit"] and not _kept(v) and norm(v) not in m["fanvals"] and norm(v) in known_chars]
+        gmv = [v for v in sorted(before["genres"]) if v not in m["gsplit"] and not _kept(v) and norm(v) not in m["fanvals"] and norm(v) not in known_chars]
         if gm: print(f"genres split/canon ({len(gm)}):{ex(gm)}")
+        if gch: print(f"genres → characters ({len(gch)}):{ex(gch)}")
         if gmv: print(f"genres → tags (not in allowlist) ({len(gmv)}):{ex(gmv)}")
     if "tags" in before:
         drops = [v for v in sorted(before["tags"]) if is_junk(v, m)]
@@ -223,9 +228,10 @@ def apply_changes(cfg, m, do_write):
         x = api.field_for("tags" if label == "tags" else label, b)
         return list(x) if isinstance(x, (tuple, list, set, frozenset)) else ([x] if x else [])
     changes = collections.defaultdict(dict); lostF = lostC = 0
+    kc = cols.get("characters"); known_chars = {norm(v) for v in api.all_field_names(kc)} if kc and kc != "tags" else set()
     for b in api.all_book_ids():
         d = {k: fv(lab, b) for k, lab in cols.items()}
-        nd, lf, lc = transform(d, m, beh, cols); lostF += lf; lostC += lc
+        nd, lf, lc = transform(d, m, beh, cols, known_chars); lostF += lf; lostC += lc
         for k, lab in cols.items():
             if k in nd and tuple(sorted(nd[k])) != tuple(sorted(d.get(k, []))):
                 changes[lab][b] = tuple(nd[k])
