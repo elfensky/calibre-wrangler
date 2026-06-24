@@ -1,0 +1,78 @@
+# Controlled vocabulary for content-based classification (classify.py). One tag per line.
+# The model may ONLY choose from these — keeps tagging consistent and noise-free. Edit/extend freely.
+# --- tropes ---
+Self-Insert
+SI/OC
+OC
+Reader Insert
+Time Travel
+Reincarnation
+Fix-It
+Slow Burn
+Enemies to Lovers
+Friends to Lovers
+Found Family
+Fluff
+Angst
+Hurt/Comfort
+Whump
+Dark
+Crack
+Powerful
+Godlike
+Overpowered
+Smart
+Manipulative
+Independent
+Bashing
+BAMF
+Out of Character
+Redemption
+Anti-Hero
+Harem
+Polyamory
+Soulmates
+Soul Bond
+Pining
+Unrequited Love
+Arranged Marriage
+Pregnancy
+Mpreg
+Gamer
+System
+LitRPG
+Isekai
+Crossover
+Alternate Universe
+Canon Divergence
+Wholesome
+Revenge
+Found Family
+Coming of Age
+Political Intrigue
+War
+Worldbuilding
+# --- relationship / category ---
+Het
+Slash
+Femslash
+Gen
+Multi
+# --- ratings / warnings ---
+NSFW
+Explicit
+Mature
+Teen
+Smut
+Lemon
+PWP
+Gore
+Graphic Violence
+Major Character Death
+Minor Character Death
+Underage
+Non-Con
+Dub-Con
+Abuse
+Torture
+Suicidal Thoughts

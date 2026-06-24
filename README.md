@@ -126,6 +126,27 @@ calibre-debug -e wrangle.py -- apply            # pre-apply; review, then add --
 
 ---
 
+## Content-based tagging — `classify.py`
+Reads each **sparse** book's description (`#comments`) and asks an LLM which tags from a **controlled
+vocabulary** (`defaults/classify_vocab.txt`) apply — enriching tags without inventing noise.
+
+```bash
+python3 classify.py --engine apple --limit 50        # propose -> classify_proposal.csv (dry-run, read-only)
+calibre-debug -e classify.py -- --apply              # add the proposed tags (Calibre CLOSED)
+```
+- `--engine apple` — on-device **Apple Foundation Models** via `afm.swift` (free, private; macOS 26+,
+  Apple Intelligence). Build once: `swiftc -O afm.swift -o afm`. Lower quality — prone to over-tagging,
+  so the prompt caps at `--max-tags 6` and dumps (>2× cap) are rejected.
+- `--engine claude` — Anthropic API, `claude-haiku-4-5` (needs `ANTHROPIC_API_KEY`). Sharper; cheap.
+- Only books with `< --min-tags` (default 2) tags **and** a description are touched. Always dry-run
+  until `--apply`. Edit `defaults/classify_vocab.txt` to shape the allowed tag set.
+
+## Custom maps from your library (`overrides/`)
+The bundled `defaults/` are generic. Two helper workflows mined library-specific maps into `overrides/`
+(gitignored): AO3-style tag clustering (`overrides/tropes.csv`) and fandom **universe-unification**
+(`overrides/fandoms.csv`, e.g. `Avengers`/`Captain America (Movies)` → `Marvel`, `Game of Thrones (TV)`
+→ `A Song of Ice and Fire`). The engine loads these on top of the defaults automatically.
+
 ## Advanced — provenance & the original pipeline
 calibre-wrangler grew out of a step-by-step cleanup of one library. Those scripts are kept for
 reference and for regenerating the defaults:

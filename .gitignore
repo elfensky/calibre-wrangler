@@ -13,3 +13,7 @@ overrides/
 __pycache__/
 *.pyc
 .DS_Store
+
+# compiled Apple FM bridge binary (build from afm.swift)
+/afm
+*.o
