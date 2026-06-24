@@ -140,7 +140,8 @@ calibre-debug -e classify.py -- --apply              # add the proposed tags (Ca
 - `--engine apple` — on-device **Apple Foundation Models** via `afm.swift` (free, private; macOS 26+,
   Apple Intelligence). Build once: `swiftc -O afm.swift -o afm`. Lower quality — prone to over-tagging,
   so the prompt caps at `--max-tags 6` and dumps (>2× cap) are rejected.
-- `--engine claude` — Anthropic API, `claude-haiku-4-5` (needs `ANTHROPIC_API_KEY`). Sharper; cheap.
+- `--engine claude|openai|gemini` — cloud APIs (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`);
+  defaults `claude-haiku-4-5` / `gpt-4o-mini` / `gemini-2.0-flash`, override with `--model`. Sharper; cheap.
 - Only books with `< --min-tags` (default 2) tags **and** a description are touched. Always dry-run
   until `--apply`. Edit `defaults/classify_vocab.txt` to shape the allowed tag set.
 

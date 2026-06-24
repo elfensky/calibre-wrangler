@@ -5,9 +5,10 @@ Reads each sparse book's description (#comments) and asks an LLM which vocab tag
   python3 classify.py [--engine apple|claude] [--limit N] [--min-tags 2]   # propose -> classify_proposal.csv
   calibre-debug -e classify.py -- --apply                                  # add proposed tags (Calibre CLOSED)
 
-Engines:  apple  = on-device Apple Foundation Models via ./afm (free, private; macOS 26+).
-          claude = Anthropic API, model claude-haiku-4-5 (needs ANTHROPIC_API_KEY).
-Only books with < --min-tags tags AND a description are classified. Default: dry-run (no writes)."""
+Engines (--engine):  apple = on-device Apple Foundation Models via ./afm (free, private; macOS 26+).
+          claude = Anthropic (ANTHROPIC_API_KEY) | openai = OpenAI (OPENAI_API_KEY) | gemini = Google (GEMINI_API_KEY).
+          --model overrides the per-engine default. Only books with < --min-tags tags AND a description are
+          classified. Default: dry-run (no writes)."""
 import os, sys, re, csv, json, sqlite3, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +21,7 @@ ENGINE = argval("--engine", "apple")
 APPLY = "--apply" in sys.argv
 LIMIT = int(argval("--limit", "0"))
 MIN_TAGS = int(argval("--min-tags", "2"))
+MODEL = argval("--model", "")            # override per-engine default model
 
 VOCAB = [l.strip() for l in open(f"{HERE}/defaults/classify_vocab.txt") if l.strip() and not l.startswith("#")]
 VLOW = {v.lower(): v for v in VOCAB}
@@ -62,6 +64,29 @@ class Claude:
         req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body,
             headers={"x-api-key": self.key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
         return json.load(urllib.request.urlopen(req))["content"][0]["text"]
+class OpenAI:
+    def __init__(self):
+        self.key = os.environ.get("OPENAI_API_KEY")
+        if not self.key: raise SystemExit("openai engine needs OPENAI_API_KEY.")
+        self.model = MODEL or "gpt-4o-mini"
+    def ask(self, prompt):
+        import urllib.request
+        body = json.dumps({"model": self.model, "max_tokens": 200,
+                           "messages": [{"role": "user", "content": prompt}]}).encode()
+        req = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=body,
+            headers={"Authorization": f"Bearer {self.key}", "content-type": "application/json"})
+        return json.load(urllib.request.urlopen(req))["choices"][0]["message"]["content"]
+class Gemini:
+    def __init__(self):
+        self.key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not self.key: raise SystemExit("gemini engine needs GEMINI_API_KEY (or GOOGLE_API_KEY).")
+        self.model = MODEL or "gemini-2.0-flash"
+    def ask(self, prompt):
+        import urllib.request
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.key}"
+        body = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
+        req = urllib.request.Request(url, data=body, headers={"content-type": "application/json"})
+        return json.load(urllib.request.urlopen(req))["candidates"][0]["content"]["parts"][0]["text"]
 
 # ---- gather sparse books (read-only) ----
 con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True); c = con.cursor()
@@ -74,7 +99,7 @@ titles = {b: t for b, t in c.execute("SELECT id, title FROM books")}
 if LIMIT: targets = targets[:LIMIT]
 print(f"engine={ENGINE}  sparse books to classify (< {MIN_TAGS} tags, has description): {len(targets)}")
 
-eng = {"apple": Apple, "claude": Claude}[ENGINE]()
+eng = {"apple": Apple, "claude": Claude, "openai": OpenAI, "gemini": Gemini}[ENGINE]()
 proposal = {}
 for i, (b, d) in enumerate(targets):
     tags = parse_tags(eng.ask(prompt_for(d)))
