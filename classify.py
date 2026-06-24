@@ -32,7 +32,7 @@ def prompt_for(desc):
     return ("Tag this fanfiction story. Choose ONLY tags from the list below that are CLEARLY supported by the "
             f"description — at most {MAXTAGS}. Be conservative: if the description is short or vague, return an "
             "empty array []. Do NOT return the whole list. Reply with ONLY a JSON array of exact-spelling tags.\n"
-            f"TAGS: {', '.join(VOCAB)}\n\nDESCRIPTION:\n{desc[:1500]}\n\nJSON array (<= %d tags):" % MAXTAGS)
+            f"TAGS: {', '.join(VOCAB)}\n\nDESCRIPTION:\n{desc[:1500]}\n\nJSON array (<= {MAXTAGS} tags):")
 
 def parse_tags(text):
     m = re.search(r"\[.*?\]", text, re.S)
