@@ -67,11 +67,14 @@ e.g. a genuine 3-part AO3 series) then populate correctly.
 ### Franchise unification (fandom granularity)
 Related works in one universe (e.g. `Fate/stay night`, `Fate/Zero`, `Fate/Grand Order`) are distinct
 titles but one fandom. The bundled `defaults/fandoms.csv` unifies the obvious franchises to a single
-canonical — **the Fate/Nasuverse works all map to `Fate`** (AO3's formal umbrella is
-`Fate - All Media Types`; plain `Fate` is cleaner for a personal library). This is a granularity
-*preference*: if you'd rather keep `Fate/Zero` separate from `Fate/stay night`, remove those rows
-from your `overrides/fandoms.csv` (or leave them unmapped). Curated unifications live in
-`build_defaults.py`'s `CURATED_FAN`.
+canonical — **the Fate/Nasuverse works all map to `Type-Moon`** (the studio/umbrella name the
+Nasuverse fandom uses). Prefer an **English title** as canonical wherever one exists (e.g.
+`The Saga of Tanya the Evil`, not `Youjo Senki`; `Puella Magi Madoka Magica`, not the romaji). This
+is a granularity *preference*: if you'd rather keep `Fate/Zero` separate from `Fate/stay night`,
+remove those rows from your `overrides/fandoms.csv` (or leave them unmapped). Note some franchises
+should **stay split** — Disney works are mostly standalone worlds (keep `DuckTales`, don't fold to a
+`Disney` mega-fandom), and `Overlord (Game)` vs `Overlord (Anime)` are unrelated. Curated
+unifications live in `build_defaults.py`'s `CURATED_FAN`.
 
 ### Protecting your cleanup from re-pollution
 FFF's **`custom_cols_newonly`** (`{column: bool}`) controls overwrite-on-update: when `true`, FFF

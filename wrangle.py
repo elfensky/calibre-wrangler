@@ -51,6 +51,35 @@ def read_csv(path):
 def read_lines(path):
     return [l.rstrip("\n") for l in open(path)] if os.path.exists(path) else []
 
+def read_tropes(path):
+    """tropes.csv: delimiter-sniffed (','|';'), positional variant,canonical,route; unknown route (freeform note) -> 'tag'."""
+    if not os.path.exists(path): return []
+    with open(path) as f: first = f.readline()
+    delim = ";" if (";" in first and first.count(";") >= first.count(",")) else ","
+    out = []
+    with open(path) as f:
+        for c in csv.reader(f, delimiter=delim):
+            if not c or not c[0].strip() or c[0].strip().lower() == "variant": continue
+            var = c[0].strip()
+            canon = c[1].strip() if len(c) > 1 and c[1].strip() else var
+            route = c[2].strip().lower() if len(c) > 2 and c[2].strip() else "tag"
+            if route not in ("tag", "genre", "character", "fandom", "drop"): route = "tag"
+            out.append((var, canon, route))
+    return out
+
+def resolve_trope_chains(raw):
+    """Follow variant->canonical to a terminal; break cycles by min spelling. Fixes chains (A->B->C) and cycles (A<->B)."""
+    res = {}
+    for start in raw:
+        seen, cur = set(), start
+        while True:
+            nxt = raw.get(cur, (cur,))[0]
+            if nxt == cur or nxt not in raw: term = nxt; break
+            if nxt in seen: term = min(seen | {cur, nxt}); break
+            seen.add(cur); cur = nxt
+        res[start] = (term, raw[start][1])
+    return res
+
 def load_maps(cfg):
     odir = os.path.join(HERE, cfg["overrides"].get("dir", "overrides"))
     def both(fn):  # defaults first, overrides last (override wins)
@@ -62,7 +91,8 @@ def load_maps(cfg):
         else: m["char"][r["variant"]] = r["canonical"]
     m["fan"] = {r["alias"]: r["canonical"] for r in both("fandoms.csv")}
     m["fanvals"] = {norm(v) for v in m["fan"].values()}
-    m["trope"] = {r["variant"]: (r["canonical"], r.get("route", "tag")) for r in both("tropes.csv")}
+    m["trope"] = resolve_trope_chains({v: (cn, rt) for v, cn, rt in
+        (read_tropes(os.path.join(DEF, "tropes.csv")) + read_tropes(os.path.join(odir, "tropes.csv")))})
     m["gsplit"] = {r["combined"]: r["atoms"].split("|") for r in both("genres_split.csv")}
     m["gcanon"] = {r["variant"]: r["canonical"] for r in both("genres_canon.csv")}
     m["gallow"] = {norm(x) for x in read_lines(os.path.join(DEF, "genres_allow.txt")) + read_lines(os.path.join(odir, "genres_allow.txt")) if x and not x.startswith("#")}
