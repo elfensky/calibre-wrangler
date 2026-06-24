@@ -142,6 +142,7 @@ def transform(d, m, beh, cols, known_chars=frozenset(), tagcanon=None):
             elif beh.get("tropes_as") == "genre" and norm(canon) not in m["rating"]: nG.add(canon)  # fold tropes into #genres (ratings stay tags)
             else: nT.add(canon)                       # tag fold
             continue
+        if norm(t) in known_chars: nC.add(t); continue   # tag is actually a known character -> #characters
         if not beh.get("keep_categories", True) and norm(t) in {"multi", "gen", "f m", "m m", "f f", "other"}: continue
         tt = ascii_fold(t) if beh["ascii_only_tags"] else t
         if norm(tt) in homes: continue                # redundant: already in a structured column -> strip
