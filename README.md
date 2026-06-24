@@ -144,6 +144,8 @@ calibre-debug -e classify.py -- --apply              # add the proposed tags (Ca
   defaults `claude-haiku-4-5` / `gpt-4o-mini` / `gemini-2.5-flash`, override with `--model`. Sharper; cheap.
 - Only books with `< --min-tags` (default 2) tags **and** a description are touched. Always dry-run
   until `--apply`. Edit `defaults/classify_vocab.txt` to shape the allowed tag set.
+- Long runs **save incrementally and resume** on re-run (skip books already in the proposal; `--fresh`
+  to restart). `--batch N` processes only N new books per run — handy for pacing API spend/rate limits.
 
 ## Custom maps from your library (`overrides/`)
 The bundled `defaults/` are generic. Two helper workflows mined library-specific maps into `overrides/`

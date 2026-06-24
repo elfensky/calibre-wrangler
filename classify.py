@@ -2,7 +2,7 @@
 """Content-based tag classification from a controlled vocabulary (defaults/classify_vocab.txt).
 Reads each sparse book's description (#comments) and asks an LLM which vocab tags apply.
 
-  python3 classify.py [--engine apple|claude] [--limit N] [--min-tags 2]   # propose -> classify_proposal.csv
+  python3 classify.py [--engine apple|claude|openai|gemini] [--batch N] [--limit N]   # propose -> classify_proposal.csv (resumable)
   calibre-debug -e classify.py -- --apply                                  # add proposed tags (Calibre CLOSED)
 
 Engines (--engine):  apple = on-device Apple Foundation Models via ./afm (free, private; macOS 26+).
@@ -22,6 +22,7 @@ APPLY = "--apply" in sys.argv
 LIMIT = int(argval("--limit", "0"))
 MIN_TAGS = int(argval("--min-tags", "2"))
 MODEL = argval("--model", "")            # override per-engine default model
+BATCH = int(argval("--batch", "0"))      # process only N new books per run (0 = all); re-run resumes
 
 VOCAB = [l.strip() for l in open(f"{HERE}/defaults/classify_vocab.txt") if l.strip() and not l.startswith("#")]
 VLOW = {v.lower(): v for v in VOCAB}
@@ -128,14 +129,16 @@ def dump():
     with open(PROP, "w", newline="") as f:
         w = csv.writer(f); w.writerow(["book_id", "title", "added_tags"])
         for b, tg in proposal.items(): w.writerow([b, titles.get(b, ""), "; ".join(tg)])
-fails = 0
-for i, (b, d) in enumerate(targets):
+fails = nproc = 0
+for b, d in targets:
     if b in done: continue
     out = ask_retry(prompt_for(d))
     if not out: fails += 1
     tags = parse_tags(out)
     if tags: proposal[b] = tags
-    if (i + 1) % 50 == 0 or i + 1 == len(targets): dump(); print(f"  {i+1}/{len(targets)} … {len(proposal)} tagged, {fails} failed")
+    nproc += 1
+    if nproc % 50 == 0: dump(); print(f"  +{nproc} this run, {len(done)+nproc}/{len(targets)} total … {len(proposal)} tagged, {fails} failed")
+    if BATCH and nproc >= BATCH: print(f"  batch limit {BATCH} reached — re-run to continue (resumes automatically)"); break
 dump()
 print(f"proposed tags for {len(proposal)} books -> classify_proposal.csv")
 print("samples:")
