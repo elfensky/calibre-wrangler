@@ -148,9 +148,10 @@ calibre-debug -e classify.py -- --apply              # add the proposed tags (Ca
   until `--apply`. Edit `defaults/classify_vocab.txt` to shape the allowed tag set.
 - Long runs **save incrementally and resume** on re-run (skip books already in the proposal; `--fresh`
   to restart). `--batch N` processes only N new books per run — handy for pacing API spend/rate limits.
-- **Incremental maintenance (`--since`):** after new FanFicFare downloads, `classify.py --since last` (re)tags
-  only books whose `#updated` changed since the previous run (date saved to `classify_state.json`) — cents
-  instead of a full pass. A full cloud `--fresh` run is expensive (all books); reserve it for vocab changes.
+- **Incremental maintenance (`--incremental`):** after new FanFicFare downloads, `classify.py --incremental` (re)tags
+  only books whose `#updated` is newer than their own **`#wrangled`** marker (a datetime column auto-created and
+  stamped on `--apply`), plus any still untagged — cents instead of a full pass. State lives *in the library*
+  (travels with `metadata.db`, no external file). A full cloud `--fresh` run is expensive; reserve it for vocab changes.
 
 ## Custom maps from your library (`overrides/`)
 The bundled `defaults/` are generic. Two helper workflows mined library-specific maps into `overrides/`

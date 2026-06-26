@@ -4,16 +4,17 @@
   2) proposed_new  — short reusable tags the model thinks apply but are NOT in the vocab yet; aggregated into
                      classify_newtags_ranked.csv for review, so the vocabulary grows cleanly (promote -> vocab).
 
-  python3 classify.py [--engine apple|claude|openai|gemini] [--since last|YYYY-MM-DD] [--workers N] [--batch N] [--fresh]
-  calibre-debug -e classify.py -- --apply        # apply 'added_tags' from classify_proposal.csv (Calibre CLOSED)
+  python3 classify.py [--engine apple|claude|openai|gemini] [--incremental] [--workers N] [--batch N] [--fresh]
+  calibre-debug -e classify.py -- --apply        # apply 'added_tags' + stamp #wrangled (Calibre CLOSED)
 
 Engines (--engine):  apple = on-device Apple Foundation Models via ./afm (free; macOS 26+).
           claude = Anthropic (ANTHROPIC_API_KEY) | openai = OpenAI (OPENAI_API_KEY) | gemini = Google (GEMINI_API_KEY).
           --model overrides the per-engine default. Only books with < --min-tags tags AND a description are processed.
           Runs are resumable (skip books already in the proposal; --fresh restarts). Dry-run until --apply.
---since last|DATE = INCREMENTAL maintenance: (re)process only books whose #updated is on/after that date (plus any
-          still untagged). "last" uses the previous run's date from classify_state.json. The cheap mode after new
-          FanFicFare downloads — avoids the ~full-library cost of a --fresh pass."""
+--incremental = cheap maintenance after new downloads: (re)process only books whose #updated is newer than their own
+          #wrangled marker (or never wrangled), plus any still untagged. --apply auto-creates the #wrangled datetime
+          column and stamps each tagged book, so the state lives IN the library — no external file. (--since DATE
+          forces an explicit cutoff against #updated.) Avoids the ~full-library cost of a --fresh pass."""
 import os, sys, re, csv, json, sqlite3, subprocess, collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -114,15 +115,22 @@ class Gemini:
 PROP = f"{HERE}/classify_proposal.csv"
 RANK = f"{HERE}/classify_newtags_ranked.csv"
 
-if APPLY:                                      # apply 'added_tags' from the reviewed proposal — no LLM calls
+if APPLY:                                      # apply 'added_tags' + stamp the per-book #wrangled marker — no LLM calls
     from calibre.library import db as DB_
-    api = DB_(LIB).new_api
+    from calibre.utils.date import now as cal_now
+    legacy = DB_(LIB); api = legacy.new_api
+    if "#wrangled" not in api.field_metadata.all_field_keys():        # auto-create the marker once
+        legacy.create_custom_column("wrangled", "Wrangled", "datetime", False)
+        legacy = DB_(LIB); api = legacy.new_api                       # reopen so the new column is visible
+        api.set_field("#wrangled", {b: cal_now() for b in api.all_book_ids()})  # bootstrap: existing library = wrangled as of now
+        print("created #wrangled column + backfilled existing books")
     chg = {}
     for r in csv.DictReader(open(PROP)):
         b = int(r["book_id"]); tags = [t for t in r.get("added_tags", "").split("; ") if t.strip()]
         if tags: chg[b] = tuple(sorted(set(api.field_for("tags", b)) | set(tags)))
     api.set_field("tags", chg)
-    raise SystemExit(f"WROTE: added vocab tags to {len(chg)} books from {os.path.basename(PROP)}.")
+    ts = cal_now(); api.set_field("#wrangled", {b: ts for b in chg})   # stamp the books just tagged
+    raise SystemExit(f"WROTE: tags to {len(chg)} books + stamped #wrangled ({os.path.basename(PROP)}).")
 
 # ---- gather books (read-only) ----
 con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True); c = con.cursor()
@@ -130,22 +138,24 @@ tagn = {b: 0 for (b,) in c.execute("SELECT id FROM books")}
 for (b,) in c.execute("SELECT book FROM books_tags_link"): tagn[b] = tagn.get(b, 0) + 1
 desc = {b: t for b, t in c.execute("SELECT book, text FROM comments")}
 def strip_html(s): return re.sub(r"<[^>]+>", " ", s or "").strip()
-SINCE = argval("--since", "")                     # incremental: (re)process books with #updated >= this date
-STATE = f"{HERE}/classify_state.json"
-if SINCE == "last":                               # "--since last" = since the previous run (from state file)
-    try: SINCE = json.load(open(STATE)).get("last_run", "")
-    except Exception: SINCE = ""
-updated = {}
-if SINCE:
-    ur = c.execute("SELECT id FROM custom_columns WHERE label='updated'").fetchone()
-    if ur:
-        i = ur[0]; lk = f"books_custom_column_{i}_link"
+SINCE = argval("--since", "")                     # explicit override: (re)process books with #updated >= this date
+INCREMENTAL = "--incremental" in sys.argv         # per-book: (re)process books whose #updated > their #wrangled marker
+updated = {}; wrangled = {}
+if SINCE or INCREMENTAL:
+    def _colmap(label):
+        r = c.execute("SELECT id FROM custom_columns WHERE label=?", (label,)).fetchone()
+        if not r: return {}
+        i = r[0]; lk = f"books_custom_column_{i}_link"
         has = c.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?", (lk,)).fetchone()[0]
         q = (f"SELECT l.book, v.value FROM {lk} l JOIN custom_column_{i} v ON v.id=l.value" if has
              else f"SELECT book, value FROM custom_column_{i}")
-        updated = {b: str(v)[:10] for b, v in c.execute(q)}
-    print(f"  incremental --since {SINCE}: {sum(1 for d in updated.values() if d >= SINCE)} books updated on/after that date")
-def is_fresh(b): return bool(SINCE) and updated.get(b, "") >= SINCE
+        return {b: str(v)[:10] for b, v in c.execute(q)}
+    updated = _colmap("updated")
+    if INCREMENTAL: wrangled = _colmap("wrangled")
+def needs(b):                                     # changed since we last tagged it, or after an explicit --since date
+    if INCREMENTAL and (b not in wrangled or updated.get(b, "") > wrangled.get(b, "")): return True
+    if SINCE and updated.get(b, "") >= SINCE: return True
+    return False
 TEXTFALLBACK = "--text-fallback" in sys.argv     # when the description is thin, sample the book's own text
 bookfile = {}
 if TEXTFALLBACK:
@@ -180,7 +190,8 @@ def text_for(b):
     if len(d) >= 80 or not TEXTFALLBACK: return d
     et = book_text(bookfile.get(b, ""))
     return (d + " " + et).strip() if et else d
-targets = [(b, text_for(b)) for b in tagn if tagn[b] < MIN_TAGS or is_fresh(b)]
+targets = [(b, text_for(b)) for b in tagn if tagn[b] < MIN_TAGS or needs(b)]
+if INCREMENTAL or SINCE: print(f"  incremental: {sum(1 for b in tagn if needs(b))} books changed since last wrangle")
 targets = [(b, t) for b, t in targets if t and len(t) >= 40]
 titles = {b: t for b, t in c.execute("SELECT id, title FROM books")}
 if LIMIT: targets = targets[:LIMIT]
@@ -204,7 +215,7 @@ if os.path.exists(PROP) and "--fresh" not in sys.argv:        # resume: skip boo
     for r in csv.DictReader(open(PROP)):
         bid = int(r["book_id"]); at = [t for t in r.get("added_tags", "").split("; ") if t.strip()]
         proposal[bid] = (at, [t for t in r.get("proposed_new", "").split("; ") if t.strip()])
-        if (at or not TEXTFALLBACK) and not is_fresh(bid): done.add(bid)   # re-process books updated since --since
+        if (at or not TEXTFALLBACK) and not needs(bid): done.add(bid)   # re-process books changed since last wrangle
     if done: print(f"  resuming: {len(done)} already in proposal (pass --fresh to restart)")
 def dump():
     with open(PROP, "w", newline="") as f:
@@ -227,10 +238,6 @@ with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         nproc += 1
         if nproc % 50 == 0: dump(); print(f"  +{nproc}/{len(todo)} this run, {len(done)+nproc}/{len(targets)} total … {sum(1 for v in proposal.values() if v[0])} tagged, {fails} failed")
 dump()
-if not LIMIT and not BATCH:                        # record run date for the next `--since last`
-    import datetime
-    try: json.dump({"last_run": datetime.date.today().isoformat()}, open(STATE, "w"))
-    except Exception: pass
 if failures:
     with open(f"{HERE}/classify_failures.csv", "w", newline="") as f:
         w = csv.writer(f); w.writerow(["book_id", "title", "reason"])
