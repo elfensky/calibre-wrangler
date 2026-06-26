@@ -76,3 +76,45 @@ Dub-Con
 Abuse
 Torture
 Suicidal Thoughts
+# --- discovered tropes (promoted from content, 2026-06) ---
+Second Chance
+Fish Out Of Water
+Villain Protagonist
+Reluctant Protagonist
+Proactive Protagonist
+Competent Protagonist
+Underdog Protagonist
+Power Progression
+Power Fantasy
+Rise To Power
+Empire Building
+Post-Canon
+Moral Ambiguity
+Wish Fulfillment
+Future Knowledge
+Dimension Travel
+Multiverse Travel
+Transmigration
+Divine Intervention
+Mentorship
+Body Swap
+Genderbend
+Secret Identity
+Trauma Recovery
+Self-Discovery
+Memory Loss
+Time Loop
+Butterfly Effect
+Death Game
+High Stakes
+Culture Shock
+Betrayal
+Origin Story
+Survival
+Strategic Planning
+# --- discovered explicit-content ---
+Rough Sex
+Breeding
+Threesome
+Dom/sub
+Incest
