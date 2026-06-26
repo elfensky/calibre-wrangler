@@ -127,27 +127,39 @@ tagn = {b: 0 for (b,) in c.execute("SELECT id FROM books")}
 for (b,) in c.execute("SELECT book FROM books_tags_link"): tagn[b] = tagn.get(b, 0) + 1
 desc = {b: t for b, t in c.execute("SELECT book, text FROM comments")}
 def strip_html(s): return re.sub(r"<[^>]+>", " ", s or "").strip()
-TEXTFALLBACK = "--text-fallback" in sys.argv     # when the description is thin, sample the epub prose instead
-epubpath = {}
+TEXTFALLBACK = "--text-fallback" in sys.argv     # when the description is thin, sample the book's own text
+bookfile = {}
 if TEXTFALLBACK:
     bp = {b: p for b, p in c.execute("SELECT id, path FROM books")}
-    for b, name in c.execute("SELECT book, name FROM data WHERE format='EPUB'"):
-        epubpath[b] = os.path.join(LIB, bp[b], name + ".epub")
-def epub_text(path, limit=4000):
-    import zipfile
+    byb = {}
+    for b, fmt, name in c.execute("SELECT book, format, name FROM data"):
+        byb.setdefault(b, {})[fmt.upper()] = os.path.join(LIB, bp[b], name + "." + fmt.lower())
+    for b, fm in byb.items():
+        bookfile[b] = fm.get("EPUB") or next(iter(fm.values()))   # prefer EPUB, else any available format
+def book_text(path, limit=6000):
+    if not path or not os.path.exists(path): return ""
+    if path.lower().endswith(".epub"):                  # fast path: epub is a zip of XHTML
+        import zipfile
+        try:
+            z = zipfile.ZipFile(path); out = []
+            for n in z.namelist():
+                if not n.lower().endswith((".xhtml", ".html", ".htm")): continue
+                t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", z.read(n).decode("utf-8", "ignore"))).strip()
+                if len(t) > 200: out.append(t)           # skip nav/title pages
+                if sum(len(x) for x in out) > limit: break
+            return " ".join(out)[:limit]
+        except Exception: return ""
+    import subprocess, tempfile                          # other formats (MOBI/PDF/DOCX/…): let calibre extract
     try:
-        z = zipfile.ZipFile(path); out = []
-        for n in z.namelist():
-            if not n.lower().endswith((".xhtml", ".html", ".htm")): continue
-            t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", z.read(n).decode("utf-8", "ignore"))).strip()
-            if len(t) > 200: out.append(t)                 # skip nav/title pages
-            if sum(len(x) for x in out) > limit: break
-        return " ".join(out)[:limit]
+        with tempfile.TemporaryDirectory() as td:
+            o = os.path.join(td, "o.txt")
+            subprocess.run(["ebook-convert", path, o], capture_output=True, timeout=180)
+            return re.sub(r"\s+", " ", open(o, errors="ignore").read()).strip()[:limit] if os.path.exists(o) else ""
     except Exception: return ""
 def text_for(b):
     d = strip_html(desc.get(b, ""))
     if len(d) >= 80 or not TEXTFALLBACK: return d
-    et = epub_text(epubpath.get(b, ""))
+    et = book_text(bookfile.get(b, ""))
     return (d + " " + et).strip() if et else d
 targets = [(b, text_for(b)) for b in tagn if tagn[b] < MIN_TAGS]
 targets = [(b, t) for b, t in targets if t and len(t) >= 40]
