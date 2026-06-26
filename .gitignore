@@ -17,3 +17,4 @@ __pycache__/
 # compiled Apple FM bridge binary (build from afm.swift)
 /afm
 *.o
+classify_state.json
