@@ -36,3 +36,29 @@ Cyberpunk
 Dark Fantasy
 Urban Fantasy
 Western
+# sub-genres
+Body Horror
+Cosmic Horror
+Eldritch Horror
+Survival Horror
+Dark Comedy
+Character Study
+Coming of Age
+Epistolary
+Rational Fiction
+Power Fantasy
+Survival
+Magical Realism
+Modern Fantasy
+Science Fantasy
+Magical Adventure
+Military Science Fiction
+Post-Apocalyptic
+Zombie Apocalypse
+Dimension Travel
+School Life
+Ecchi
+Xianxia
+Wuxia
+Xuanhuan
+Cultivation
